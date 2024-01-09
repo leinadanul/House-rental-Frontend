@@ -5,26 +5,32 @@ import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert, { AlertColor } from '@mui/material/Alert';
 
 export default function FormPropsTextFields() {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [mobileNumber, setMobileNumber] = useState('');
-    const [email, setEmail] = useState('');
+    const [companyNumber, setCompanyNumber] = useState('');
     const [company, setCompany] = useState('');
+    const [email, setEmail] = useState('');
+    const [picture, setPicture] = useState('');
     const [phoneNumberError, setPhoneNumberError] = useState(false);
-    const [mobileNumberError, setMobileNumberError] = useState(false);
+    const [companyNumberError, setCompanyNumberError] = useState(false);
     const [emailError, setEmailError] = useState(false);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [snackbarSeverity, setSnackbarSeverity] = useState<AlertColor | undefined>('success');
 
     const handlePhoneNumberChange = (value) => {
         setPhoneNumber(value);
         setPhoneNumberError(!/^\+?[1-9]\d{1,14}$/.test(value));
     };
 
-    const handleMobileNumberChange = (value) => {
-        setMobileNumber(value);
-        setMobileNumberError(!/^\+?[1-9]\d{1,14}$/.test(value));
+    const handleCompanyNumberChange = (value) => {
+        setCompanyNumber(value);
+        setCompanyNumberError(!/^\+?[1-9]\d{1,14}$/.test(value));
     };
 
     const handleEmailChange = (value) => {
@@ -32,26 +38,69 @@ export default function FormPropsTextFields() {
         setEmailError(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
     };
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
-
-        if (!firstName || !lastName || !phoneNumber || !email || !company || phoneNumberError || emailError) {
-            alert('The form has errors');
+    
+        if (!firstName || !lastName || !phoneNumber || !email || emailError) {
+            handleSnackbarOpen('Please fill in all required fields.', 'warning');
             return;
         }
+        try {
+            const companyNumberToSend = companyNumber === '' ? null : Number(companyNumber);
+            const companyPictureToSend = company === '' ? null : String(company)
+            const pictureToSend = picture === '' ? null : String(picture)
+            const response = await fetch('http://127.0.0.1:8000/landlord', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email,
+                    phone_number: phoneNumber,
+                    company_number: companyNumberToSend,
+                    company_name: companyPictureToSend,
+                    picture: pictureToSend,
+                }),
+            });
 
-        console.log('Form submitted:', { firstName, lastName, phoneNumber, mobileNumber, email, company });
-        setFirstName('');
-        setLastName('');
-        setPhoneNumber('');
-        setMobileNumber('');
-        setEmail('');
-        setCompany('');
+        if (!response.ok) {
+            throw new Error('Internal Server Error. Unable to register at the moment. Please try again later.');
+        } else {
+            handleSnackbarOpen('Form submitted successfully!', 'success');
+        }
+            const data = await response.json();
+            console.log('Form submitted:', data);
+
+            setFirstName('');
+            setLastName('');
+            setPhoneNumber('');
+            setCompanyNumber('');
+            setEmail('');
+            setCompany('');
+            setPicture('');
+        } catch (error) {
+            console.error('Error:', error);
+            handleSnackbarOpen('Error submitting form. Please try again later.', 'error');
+        }
     };
 
+    const handleSnackbarOpen = (message, severity) => {
+        setSnackbarOpen(true);
+        setSnackbarMessage(message);
+        setSnackbarSeverity(['success', 'error', 'warning', 'info'].includes(severity) ? severity : undefined);
+    };
+    
+    const handleSnackbarClose = (event, reason) => {
+        if (reason === 'clickaway') {
+            return;
+        }
+        setSnackbarOpen(false);
+    };
     return (
         <Container component="main" maxWidth="xs">
-            <form onSubmit={handleSubmit} noValidate autoComplete="off">
+            <form onSubmit={handleSubmit} noValidate autoComplete="on">
                 <Box
                     sx={{
                         display: 'flex',
@@ -108,28 +157,32 @@ export default function FormPropsTextFields() {
                         />
                     </div>
                         <TextField
-                            required
                             id="outlined-company"
-                            label="Company Name"
+                            label="Company Name (Optional)"
                             variant="standard"
                             value={company}
                             onChange={(e) => setCompany(e.target.value)}
                             sx={{ m: 1, width: '100%' }}
                         />
                         <TextField
-                            error={mobileNumberError}
-                            id="outlined-mobile-number"
-                            label="Comapny Number"
+                            error={companyNumberError}
+                            id="outlined-company-number"
+                            label="Comapny Number (Optional)"
                             variant="standard"
-                            value={mobileNumber}
-                            onChange={(e) => handleMobileNumberChange(e.target.value)}
-                            helperText={mobileNumberError ? 'Invalid mobile number' : ''}
+                            value={companyNumber}
+                            onChange={(e) => handleCompanyNumberChange(e.target.value)}
+                            helperText={companyNumberError ? 'Invalid company number' : ''}
                             sx={{ m: 1, width: '100%' }}
                         />
                     </Paper>
                     <Button type="submit" variant="contained" sx={{ marginTop: 2 }}>
                         Submit
                     </Button>
+                    <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
+                        <MuiAlert severity={snackbarSeverity} sx={{ width: '100%' }}>
+                            {snackbarMessage}
+                        </MuiAlert>
+                    </Snackbar>
                 </Box>
             </form>
         </Container>
